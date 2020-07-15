@@ -39,12 +39,12 @@ def predict_img(net, full_img, device, scale_factor=1, out_threshold=0.5):
 def get_args():
     parser = argparse.ArgumentParser(description='Predict masks from input images',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--gpu_id', '-g', type=int, default=0, help='Number of gpu')
-    parser.add_argument('--unet_type', '-u', default='v2', help='UNet type is v1/v2/v3 (unet unet++ unet3+)')
+    parser.add_argument('--gpu_id', '-g', metavar='G', type=int, default=0, help='Number of gpu')
+    parser.add_argument('--unet_type', '-u', metavar='U', default='v2', help='UNet type is v1/v2/v3 (unet unet++ unet3+)')
     parser.add_argument('--model', '-m', default='MODEL.pth', metavar='FILE', help="Specify the file in which the model is stored")
     
     parser.add_argument('--input', '-i', metavar='INPUT', nargs='+', help='filenames of input images', required=True)
-    parser.add_argument('--output', '-o', metavar='INPUT', nargs='+', help='Filenames of ouput images')
+    parser.add_argument('--output', '-o', metavar='OUTPUT', nargs='+', help='Filenames of ouput images')
     
     parser.add_argument('--viz', '-v', action='store_true', help="Visualize the images as they are processed", default=False)
     parser.add_argument('--no-save', '-n', action='store_true', help="Do not save the output masks", default=False)

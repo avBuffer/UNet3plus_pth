@@ -29,12 +29,13 @@ We augment the number of images by perturbing them withrotation and scaling. Fou
 
 ```shell script
 > python train.py -h
-usage: train.py [-h] [-u U] [-e E] [-b [B]] [-l [LR]] [-f LOAD] [-s SCALE] [-v VAL]
+usage: train.py [-h] [-g G] [-u U] [-e E] [-b [B]] [-l [LR]] [-f LOAD] [-s SCALE] [-v VAL]
 
 Train the UNet on images and target masks
 
 optional arguments:
   -h, --help            show this help message and exit
+  -g G, --gpu_id        Number of gpu
   -u U, --unet\_type    UNet type is unet/unet2/unet3
   -e E, --epochs E      Number of epochs (default: 5)
   -b [B], --batch-size [B]
@@ -55,7 +56,7 @@ The input images and target masks should be in the `data/imgs` and `data/masks` 
 
 ### Notes on memory
 ```bash
-$ python train.py -e 200 -b 1 -l 0.1 -s 0.5 -v 15.0
+$ python train.py -g 0 -u v3 -e 200 -b 1 -l 0.1 -s 0.5 -v 15.0
 ```
 
 ### Prediction
@@ -77,12 +78,13 @@ $ python predict.py -i image1.jpg image2.jpg --viz --no-save
 ```shell script
 
 > python predict.py -h
-usage: predict.py [-h] [--unet\_type unet/unet2/unet3] [--model FILE] --input INPUT [INPUT ...] [--output INPUT [INPUT ...]] [--viz] [--no-save] [--mask-threshold MASK_THRESHOLD] [--scale SCALE]
+usage: predict.py [-h] [--gpu_id 0]  [--unet\_type unet/unet2/unet3] [--model FILE] --input INPUT [INPUT ...] [--output INPUT [INPUT ...]] [--viz] [--no-save] [--mask-threshold MASK_THRESHOLD] [--scale SCALE]
 
 Predict masks from input images
 
 optional arguments:
   -h, --help            show this help message and exit
+  -g G, --gpu_id        Number of gpu
   --unet\_type, -u U    UNet type is unet/unet2/unet3
   --model FILE, -m FILE
                         Specify the file in which the model is stored

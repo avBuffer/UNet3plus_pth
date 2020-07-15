@@ -11,7 +11,7 @@ from tqdm import tqdm
 from utils.eval import eval_net
 from unet import UNet
 from unet import UNet2Plus
-from unet import UNet3Plus
+from unet import UNet3Plus, UNet3Plus_DeepSup, UNet3Plus_DeepSup_CGM
 from torch.utils.tensorboard import SummaryWriter
 from utils.dataset import BasicDataset
 from torch.utils.data import DataLoader, random_split
@@ -21,8 +21,8 @@ dir_mask = 'data/train/masks/'
 dir_checkpoint = 'ckpts/'
 
 
-def train_net(net, device, epochs=5, batch_size=1, lr=0.1, val_percent=0.1, save_cp=True, img_scale=0.5):
-    dataset = BasicDataset(dir_img, dir_mask, img_scale)
+def train_net(unet_type, net, device, epochs=5, batch_size=1, lr=0.1, val_percent=0.1, save_cp=True, img_scale=0.5):
+    dataset = BasicDataset(unet_type, dir_img, dir_mask, img_scale)
     n_val = int(len(dataset) * val_percent)
     n_train = len(dataset) - n_val
 
@@ -34,6 +34,7 @@ def train_net(net, device, epochs=5, batch_size=1, lr=0.1, val_percent=0.1, save
     global_step = 0
 
     logging.info(f'''Starting training:
+                     UNet type:       {unet_type}
                      Epochs:          {epochs}
                      Batch size:      {batch_size}
                      Learning rate:   {lr}
@@ -117,11 +118,11 @@ def train_net(net, device, epochs=5, batch_size=1, lr=0.1, val_percent=0.1, save
 def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-g', '--gpu_id', dest='gpu_id', type=int, default=0, help='Number of gpu')
-    parser.add_argument('-u', '--unet_type', dest='unet_type', type=str, default='v2', help='UNet type is v1/v2/v3 (unet unet++ unet3+)')
+    parser.add_argument('-g', '--gpu_id', dest='gpu_id', metavar='G', type=int, default=0, help='Number of gpu')
+    parser.add_argument('-u', '--unet_type', dest='unet_type', metavar='U', type=str, default='v3', help='UNet type is v1/v2/v3 (unet unet++ unet3+)')
     
-    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=5, help='Number of epochs', dest='epochs')
-    parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=1, help='Batch size', dest='batchsize')
+    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=100, help='Number of epochs', dest='epochs')
+    parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=2, help='Batch size', dest='batchsize')
     parser.add_argument('-l', '--learning-rate', metavar='LR', type=float, nargs='?', default=0.1, help='Learning rate', dest='lr')
     
     parser.add_argument('-f', '--load', dest='load', type=str, default=False, help='Load model from a .pth file')
@@ -150,6 +151,8 @@ if __name__ == '__main__':
         net = UNet2Plus(n_channels=3, n_classes=1)
     elif unet_type == 'v3':
         net = UNet3Plus(n_channels=3, n_classes=1)
+        #net = UNet3Plus_DeepSup(n_channels=3, n_classes=1)
+        #net = UNet3Plus_DeepSup_CGM(n_channels=3, n_classes=1)
     else:
         net = UNet(n_channels=3, n_classes=1)
 

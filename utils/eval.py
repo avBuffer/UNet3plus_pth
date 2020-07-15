@@ -1,7 +1,8 @@
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
-from loss.dice_loss import dice_coeff
+from loss.diceLoss import dice_coeff
+from loss.bceLoss import BCE_loss
 
 
 def eval_net(net, loader, device, n_val):

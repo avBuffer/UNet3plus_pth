@@ -1,6 +1,9 @@
+import os
+import sys
 import logging
-import numpy as np
 import torch
+import numpy as np
+
 from os.path import splitext
 from os import listdir
 from glob import glob
@@ -9,10 +12,12 @@ from PIL import Image
 
 
 class BasicDataset(Dataset):
-    def __init__(self, imgs_dir, masks_dir, scale=1):
+    def __init__(self, unet_type, imgs_dir, masks_dir, scale=1):
+        self.unet_type = unet_type
         self.imgs_dir = imgs_dir
         self.masks_dir = masks_dir
         self.scale = scale
+        
         assert 0 < scale <= 1, 'Scale must be between 0 and 1'
         self.ids = [splitext(file)[0] for file in listdir(imgs_dir) if not file.startswith('.')]
         logging.info(f'Creating dataset with {len(self.ids)} examples')
@@ -23,13 +28,18 @@ class BasicDataset(Dataset):
 
 
     @classmethod
-    def preprocess(cls, pil_img, scale):
+    def preprocess(cls, unet_type, pil_img, scale):
         w, h = pil_img.size
         newW, newH = int(scale * w), int(scale * h)
         assert newW > 0 and newH > 0, 'Scale is too small'
-        pil_img = pil_img.resize((newW, newH))
-        img_nd = np.array(pil_img)
 
+        if unet_type != 'v3':
+            pil_img = pil_img.resize((newW, newH))
+        else:
+            new_size = int(scale * 640)
+            pil_img = pil_img.resize((new_size, new_size))
+
+        img_nd = np.array(pil_img)
         if len(img_nd.shape) == 2:
             img_nd = np.expand_dims(img_nd, axis=2)
 
@@ -51,6 +61,7 @@ class BasicDataset(Dataset):
         img = Image.open(img_file[0])
 
         assert img.size == mask.size, f'Image and mask {idx} should be the same size, but are {img.size} and {mask.size}'
-        img = self.preprocess(img, self.scale)
-        mask = self.preprocess(mask, self.scale)
+        img = self.preprocess(self.unet_type, img, self.scale)
+        mask = self.preprocess(self.unet_type, mask, self.scale)
+        
         return {'image': torch.from_numpy(img), 'mask': torch.from_numpy(mask)}
