@@ -2,9 +2,12 @@ import argparse
 import logging
 import os
 import sys
+import math
 import numpy as np
+import matplotlib.pylot as plt
 import torch
 import torch.nn as nn
+import torch.optim.lr_scheduler as lr_scheduler
 
 from torch import optim
 from tqdm import tqdm
@@ -46,13 +49,21 @@ def train_net(unet_type, net, device, epochs=5, batch_size=1, lr=0.1, val_percen
                      Images scaling:  {img_scale}''')
 
     optimizer = optim.RMSprop(net.parameters(), lr=lr, weight_decay=1e-8)
+    # Scheduler https://arxiv.org/pdf/1812.01187.pdf
+    lf = lambda x: (((1 + math.cos(x * math.pi / epochs)) / 2) ** 1.0) * 0.95 + 0.05 #cosine
+    scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
+    scheduler.last_epoch = global_step
+
     if net.n_classes > 1:
         criterion = nn.CrossEntropyLoss()
     else:
         criterion = nn.BCEWithLogitsLoss()
-
+    
+    lrs = []
     best_loss = 10000
     for epoch in range(epochs):
+        cur_lr = optimizer.param_groups[0]['lr']
+        print('\nEpoch=', (epoch + 1), ' lr=', cur_lr)
         net.train()
         epoch_loss = 0
 
@@ -101,6 +112,10 @@ def train_net(unet_type, net, device, epochs=5, batch_size=1, lr=0.1, val_percen
                         writer.add_images('masks/true', true_masks, global_step)
                         writer.add_images('masks/pred', torch.sigmoid(masks_pred) > 0.5, global_step)
 
+        # update scheduler
+        scheduler.step()
+        lrs.append(cur_lr)
+
         if save_cp:
             try:
                 os.mkdir(dir_checkpoint)
@@ -112,6 +127,14 @@ def train_net(unet_type, net, device, epochs=5, batch_size=1, lr=0.1, val_percen
                 torch.save(net.state_dict(), dir_checkpoint + f'CP_epoch{epoch + 1}_loss_{str(loss.item())}.pth')
                 best_loss = loss.item()
                 logging.info(f'Checkpoint {epoch + 1} saved ! loss (batch) = ' + str(loss.item()))
+    
+    # plot lr scheduler
+    plt.plot(lrs , '.-', label='LambdaLR')
+    plt.xlabel('epoch')
+    plt.ylabel('LR')
+    plt.tight_layout()
+    plt.savefig('LR.png', dpi=300)
+
     writer.close()
 
 
@@ -159,7 +182,7 @@ if __name__ == '__main__':
     logging.info(f'Network:\n'
                  f'\t{net.n_channels} input channels\n'
                  f'\t{net.n_classes} output channels (classes)\n'
-                 f'\t{"Bilinear" if net.bilinear else "Dilated conv"} upscaling')
+                 f'\t{'Bilinear' if net.bilinear else 'Dilated conv'} upscaling')
 
     if args.load:
         net.load_state_dict(torch.load(args.load, map_location=device))
@@ -168,10 +191,9 @@ if __name__ == '__main__':
     net.to(device=device)
     # faster convolutions, but more memory
     # cudnn.benchmark = True
-
     try:
-        train_net(net=net, epochs=args.epochs, batch_size=args.batchsize, lr=args.lr,
-                  device=device, img_scale=args.scale, val_percent=args.val / 100)
+        train_net(unet_type=unet_type, net=net, epochs=args.epochs, batch_size=args.batchsize, 
+                  lr=args.lr, device=device, img_scale=args.scale, val_percent=args.val / 100)
     except KeyboardInterrupt:
         torch.save(net.state_dict(), 'INTERRUPTED.pth')
         logging.info('Saved interrupt')
