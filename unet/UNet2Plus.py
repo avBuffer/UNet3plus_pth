@@ -104,7 +104,7 @@ class UNet2Plus(nn.Module):
             return F.sigmoid(final_4)
 
 
-if __name__ == '__main__'
+if __name__ == '__main__':
     model = UNet2Plus()
     print('# generator parameters:', 1.0 * sum(param.numel() for param in model.parameters()) / 1000000)
     

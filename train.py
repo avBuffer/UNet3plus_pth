@@ -3,24 +3,25 @@ import logging
 import os
 import sys
 import math
-import numpy as np
-import matplotlib.pylot as plt
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim.lr_scheduler as lr_scheduler
-
 from torch import optim
+from torch.utils.tensorboard import SummaryWriter
+from torch.utils.data import DataLoader, random_split
+from apex import amp
 from tqdm import tqdm
-from utils.eval import eval_net
 from unet import UNet
 from unet import UNet2Plus
 from unet import UNet3Plus, UNet3Plus_DeepSup, UNet3Plus_DeepSup_CGM
-from torch.utils.tensorboard import SummaryWriter
 from utils.dataset import BasicDataset
-from torch.utils.data import DataLoader, random_split
+from utils.eval import eval_net
 
-dir_img = 'data/train/imgs/'
-dir_mask = 'data/train/masks/'
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
+dir_img = 'D:/datasets/Portraits/train/imgs/'
+dir_mask = 'D:/datasets/Portraits/train/masks/'
 dir_checkpoint = 'ckpts/'
 
 
@@ -49,6 +50,8 @@ def train_net(unet_type, net, device, epochs=5, batch_size=1, lr=0.1, val_percen
                      Images scaling:  {img_scale}''')
 
     optimizer = optim.RMSprop(net.parameters(), lr=lr, weight_decay=1e-8)
+    model, optimizer = amp.initialize(net, optimizer, opt_level="O1")
+
     # Scheduler https://arxiv.org/pdf/1812.01187.pdf
     lf = lambda x: (((1 + math.cos(x * math.pi / epochs)) / 2) ** 1.0) * 0.95 + 0.05 #cosine
     scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
@@ -86,15 +89,17 @@ def train_net(unet_type, net, device, epochs=5, batch_size=1, lr=0.1, val_percen
                 pbar.set_postfix(**{'loss (batch)': loss.item()})
 
                 optimizer.zero_grad()
-                loss.backward()
+                #loss.backward()
+                with amp.scale_loss(loss, optimizer) as scaled_loss:
+                    scaled_loss.backward()
                 optimizer.step()
 
                 pbar.update(imgs.shape[0])
                 global_step += 1
-                dataset_len = len(dataset);
+                dataset_len = len(dataset)
                 
-                a1 = dataset_len // 10
-                a2 = dataset_len / 10
+                a1 = dataset_len // 10 if dataset_len // 10 > 0 else 1
+                a2 = dataset_len / 10 if dataset_len / 10 > 0 else 1
                 b1 = global_step % a1
                 b2 = global_step % a2
 
@@ -144,7 +149,7 @@ def get_args():
     parser.add_argument('-g', '--gpu_id', dest='gpu_id', metavar='G', type=int, default=0, help='Number of gpu')
     parser.add_argument('-u', '--unet_type', dest='unet_type', metavar='U', type=str, default='v3', help='UNet type is v1/v2/v3 (unet unet++ unet3+)')
     
-    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=100, help='Number of epochs', dest='epochs')
+    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=10000, help='Number of epochs', dest='epochs')
     parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=2, help='Batch size', dest='batchsize')
     parser.add_argument('-l', '--learning-rate', metavar='LR', type=float, nargs='?', default=0.1, help='Learning rate', dest='lr')
     
@@ -181,8 +186,8 @@ if __name__ == '__main__':
 
     logging.info(f'Network:\n'
                  f'\t{net.n_channels} input channels\n'
-                 f'\t{net.n_classes} output channels (classes)\n'
-                 f'\t{'Bilinear' if net.bilinear else 'Dilated conv'} upscaling')
+                 f'\t{net.n_classes} output channels (classes)\n')
+                 #f'\t{'Bilinear' if net.bilinear else 'Dilated conv'} upscaling')
 
     if args.load:
         net.load_state_dict(torch.load(args.load, map_location=device))
